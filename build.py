@@ -50,7 +50,10 @@ class Program:
         print("\n".join(["cmd: {0}\ncwd: {1}".format(x.command, x.working_dir) for x in command_wrappers]))
         print("------------------------------------------------------------")
 
-        pool.map(self.run_command_wrapper, command_wrappers)
+        # FIXME: pool.map() throws error when using Python 2.7:
+        # cPickle.PicklingError: Can't pickle <type 'instancemethod'>: attribute lookup __builtin__.instancemethod failed
+        #pool.map(self.run_command_wrapper, command_wrappers)
+        [self.run_command_wrapper(cw) for cw in command_wrappers]
 
     def run_command(self, command, working_dir=None):
         if working_dir is None:
