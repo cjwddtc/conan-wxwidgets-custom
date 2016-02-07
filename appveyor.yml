@@ -1,13 +1,14 @@
 version: {build}
-    platform:
-      - x64
 
-    install:
-      - cmd: echo "Downloading conan..."
-      - ps: wget http://downloads.conan.io/latest_windows -OutFile conan_installer.exe
-      - cmd: conan_installer.exe /VERYSILENT
-      - cmd: set PATH=%PATH%;C:\Program Files (x86)\Conan\conan
-      - cmd: conan --version
+platform:
+  - x64
 
-    build_script:
-      - cmd: python build.py
+install:
+  - cmd: echo "Downloading conan..."
+  - ps: wget http://downloads.conan.io/latest_windows -OutFile conan_installer.exe
+  - cmd: conan_installer.exe /VERYSILENT
+  - cmd: set PATH=%PATH%;C:\Program Files (x86)\Conan\conan
+  - cmd: conan --version
+
+build_script:
+  - cmd: python build.py
