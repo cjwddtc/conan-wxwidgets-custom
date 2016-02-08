@@ -11,6 +11,7 @@ import time
 class WxWidgetsConan(ConanFile):
     name = "wxWidgets_custom"
     version = "master"
+    url = "https://github.com/SteffenL/conan-wxwidgets-custom"
     settings = {
         "os": ["Windows"],
         "compiler": ["Visual Studio"],
