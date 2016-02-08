@@ -6,7 +6,6 @@ import posixpath
 import string
 import re
 from collections import namedtuple
-import time
 
 class WxWidgetsConan(ConanFile):
     name = "wxWidgets_custom"
