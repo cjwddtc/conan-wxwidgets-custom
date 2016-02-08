@@ -130,7 +130,7 @@ class Program:
             "x86_64": self.get_vc_environment(compiler_version, "amd64")
         }
 
-        for architecture in ["x86_64"]:
+        for architecture in ["x86", "x86_64"]:
             # Environment (variables) to use when running commands
             vc_environment = vc_environments[architecture]
 
