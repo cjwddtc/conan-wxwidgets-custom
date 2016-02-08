@@ -3,6 +3,7 @@ import os
 import subprocess
 import re
 import shutil
+import multiprocessing
 
 
 class RunCommandWrapperArg:
@@ -56,6 +57,57 @@ class ConanTestCommandBuilder:
         self.command = conan_full_cmd
 
 
+class VisualStudioEnvironmentHarvester:
+    _compiler_versions = None
+    _architectures = None
+
+    def __init__(self, compiler_versions, architectures):
+        self._compiler_versions = compiler_versions
+        self._architectures = architectures
+
+    def get_vc_environment(self, compiler_version, architecture):
+        # Open the Visual Studio shell and extract the environment variables
+        vc_vars_dump = subprocess.check_output(
+            "cmd /c \"\"C:\\Program Files (x86)\\Microsoft Visual Studio {compiler_version}.0\\VC\\vcvarsall.bat\"\" {architecture} && set".format(
+                compiler_version=compiler_version,
+                architecture=architecture
+            )
+        ).decode().strip()
+        vc_vars = [line.split("=") for line in vc_vars_dump.split("\r\n")]
+        # Using str() here because running a sub-process with an environment that contains unicode strings fails with Python 2, and using byte strings fails with Python 3. 
+        vc_vars = {str(k): str(v) for k, v in vc_vars}
+
+        return vc_vars
+
+    def get_vc_environments_pool_function(self, arg):
+        version = arg[0]
+        arch = arg[1]
+        arg.append(self.get_vc_environment(version, arch))
+        return arg
+
+    def get_vc_environments(self, compiler_versions, architectures):
+        args = []
+        for version in compiler_versions:
+            for arch in architectures:
+                args.append([version, arch])
+        pool = multiprocessing.Pool(processes=min(len(args), multiprocessing.cpu_count()))
+        result = pool.map(self.get_vc_environments_pool_function, args)
+        return result
+
+    def harvest(self):
+        result = {}
+        env_items = self.get_vc_environments(self._compiler_versions, self._architectures)
+        for env_item in env_items:
+            version = env_item[0]
+            arch = env_item[1]
+            env = env_item[2]
+
+            if not version in result:
+                result[version] = {}
+
+            result[version][arch] = env
+        return result
+
 class Program:
     conan_user = "sl"
     conan_channel = "develop"
@@ -99,20 +151,6 @@ class Program:
             environment=wrapper_arg.environment
         )
 
-    def get_vc_environment(self, compiler_version, architecture):
-        # Open the Visual Studio shell and extract the environment variables
-        vc_vars_dump = subprocess.check_output(
-            "cmd /c \"\"C:\\Program Files (x86)\\Microsoft Visual Studio {compiler_version}.0\\VC\\vcvarsall.bat\"\" {architecture} && set".format(
-                compiler_version=compiler_version,
-                architecture=architecture
-            )
-        ).decode().strip()
-        vc_vars = [line.split("=") for line in vc_vars_dump.split("\r\n")]
-        # Using str() here because running a sub-process with an environment that contains unicode strings fails with Python 2, and using byte strings fails with Python 3. 
-        vc_vars = {str(k): str(v) for k, v in vc_vars}
-
-        return vc_vars
-
     def get_conan_test_commands_for_windows(self):
         commands = []
         commands.extend(self.get_conan_test_commands_for_visualstudio())
@@ -122,54 +160,60 @@ class Program:
         commands = []
 
         compiler = "Visual Studio"
-        compiler_version = 14
+        compiler_versions = [14]
+        architectures = ["x86", "x86_64"]
+        vc_architectures = ["x86", "amd64"]
 
-        # Get the environment variables needed for building with VC++
-        vc_environments = {
-            "x86": self.get_vc_environment(compiler_version, "x86"),
-            "x86_64": self.get_vc_environment(compiler_version, "amd64")
+        # Map Conan architecture to Visual Studio/VC++ architecture
+        vc_architecture_map = {
+            "x86": "x86",
+            "x86_64": "amd64"
         }
 
-        for architecture in ["x86", "x86_64"]:
-            # Environment (variables) to use when running commands
-            vc_environment = vc_environments[architecture]
+        # Get the environment variables needed for building with VC++
+        vc_environments = VisualStudioEnvironmentHarvester(compiler_versions, vc_architectures).harvest()
 
-            conan_test_commands = [
-                RunCommandWrapperArg(
-                    command=ConanTestCommandBuilder(
-                        settings=ConanTestSettings(compiler=compiler, compiler_version=compiler_version, architecture=architecture, build_type="Debug", compiler_runtime="MDd"),
-                        options = { "wxWidgets_custom:shared": "True" }
-                    ).command,
-                    working_dir=self.project_root_dir,
-                    environment=vc_environment
-                ),
-                RunCommandWrapperArg(
-                    command=ConanTestCommandBuilder(
-                        settings=ConanTestSettings(compiler=compiler, compiler_version=compiler_version, architecture=architecture, build_type="Release", compiler_runtime="MD"),
-                        options = { "wxWidgets_custom:shared": "True" }
-                    ).command,
-                    working_dir=self.project_root_dir,
-                    environment=vc_environment
-                ),
-                RunCommandWrapperArg(
-                    command=ConanTestCommandBuilder(
-                        settings=ConanTestSettings(compiler=compiler, compiler_version=compiler_version, architecture=architecture, build_type="Release", compiler_runtime="MD"),
-                        options = { "wxWidgets_custom:shared": "False" }
-                    ).command,
-                    working_dir=self.project_root_dir,
-                    environment=vc_environment
-                ),
-                RunCommandWrapperArg(
-                    command=ConanTestCommandBuilder(
-                        settings=ConanTestSettings(compiler=compiler, compiler_version=compiler_version, architecture=architecture, build_type="Release", compiler_runtime="MT"),
-                        options = { "wxWidgets_custom:shared": "False" }
-                    ).command,
-                    working_dir=self.project_root_dir,
-                    environment=vc_environment
-                )
-            ]
+        for compiler_version in compiler_versions:
+            for architecture in architectures:
+                # Environment (variables) to use when running commands
+                vc_environment = vc_environments[compiler_version][vc_architecture_map[architecture]]
 
-            commands.extend(conan_test_commands)
+                conan_test_commands = [
+                    RunCommandWrapperArg(
+                        command=ConanTestCommandBuilder(
+                            settings=ConanTestSettings(compiler=compiler, compiler_version=compiler_version, architecture=architecture, build_type="Debug", compiler_runtime="MDd"),
+                            options = { "wxWidgets_custom:shared": "True" }
+                        ).command,
+                        working_dir=self.project_root_dir,
+                        environment=vc_environment
+                    ),
+                    RunCommandWrapperArg(
+                        command=ConanTestCommandBuilder(
+                            settings=ConanTestSettings(compiler=compiler, compiler_version=compiler_version, architecture=architecture, build_type="Release", compiler_runtime="MD"),
+                            options = { "wxWidgets_custom:shared": "True" }
+                        ).command,
+                        working_dir=self.project_root_dir,
+                        environment=vc_environment
+                    ),
+                    RunCommandWrapperArg(
+                        command=ConanTestCommandBuilder(
+                            settings=ConanTestSettings(compiler=compiler, compiler_version=compiler_version, architecture=architecture, build_type="Release", compiler_runtime="MD"),
+                            options = { "wxWidgets_custom:shared": "False" }
+                        ).command,
+                        working_dir=self.project_root_dir,
+                        environment=vc_environment
+                    ),
+                    RunCommandWrapperArg(
+                        command=ConanTestCommandBuilder(
+                            settings=ConanTestSettings(compiler=compiler, compiler_version=compiler_version, architecture=architecture, build_type="Release", compiler_runtime="MT"),
+                            options = { "wxWidgets_custom:shared": "False" }
+                        ).command,
+                        working_dir=self.project_root_dir,
+                        environment=vc_environment
+                    )
+                ]
+
+                commands.extend(conan_test_commands)
 
         return commands
 
