@@ -3,7 +3,6 @@ from conan.packager import ConanMultiPackager
 import sys
 import platform
 from copy import copy
-import re
 
 
 if __name__ == "__main__":

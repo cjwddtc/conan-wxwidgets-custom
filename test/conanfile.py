@@ -2,7 +2,7 @@ from conans import ConanFile, CMake
 import os
 
 class RunConanTestConan(ConanFile):
-    _conan_user = os.getenv("CONAN_CHANNEL", "sl")
+    _conan_user = os.getenv("CONAN_USERNAME", "sl")
     _conan_channel = os.getenv("CONAN_CHANNEL", "testing")
 
     settings = "os", "compiler", "build_type", "arch"
