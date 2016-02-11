@@ -1,7 +1,8 @@
+from conans.util.files import save, load
 from conans import ConanFile, CMake
 import platform
 import os
-import glob
+from glob import glob
 import posixpath
 import string
 import re
@@ -126,7 +127,10 @@ class WxWidgetsConan(ConanFile):
 
     def build(self):
         os.chdir(os.path.join(self.repo_subdir, self.wx_build_dir))
-        self.run(self.wx_build_command_format[str(self.settings.compiler)].format(self.wx_compile_params))
+        if self.settings.compiler == "Visual Studio":
+            self.build_with_visual_studio()
+        else:
+            self.build_with_make()
 
     def package(self):
         repo_libs_dir = posixpath.join(self.repo_subdir, self.wx_libs_dir)
@@ -216,16 +220,37 @@ class WxWidgetsConan(ConanFile):
             build=self.wx_build_type_map[str(self.settings.build_type)]
         )
 
-        print("------------------------------------------------------------")
-        print("conan settings:")
-        print("\n".join(["{0} = {1}".format(k, v) for k, v in self.settings.items()]))
-        print("")
-        print("conan options:")
-        print("\n".join(["{0} = {1}".format(k, v) for k, v in self.options.items()]))
-        print("")
-        print("wx compile params:")
-        print(self.wx_compile_params)
-        print("------------------------------------------------------------")
+    def build_with_visual_studio(self):
+        solution_file_name = "wx_vc{0}.sln".format(str(self.settings.compiler.version))
+        config_name_prefix = "DLL " if self.options.shared else "" 
+        config_name = config_name_prefix + str(self.settings.build_type)
+        platform = "x64" if self.settings.arch == "x86_64" else "Win32"
+        runtime_map = {
+            "MDd": "MultiThreadedDebugDLL",
+            "MD": "MultiThreadedDLL",
+            "MTd": "MultiThreadedDebug",
+            "MT": "MultiThreaded"
+        }
+        runtime = runtime_map[str(self.settings.compiler.runtime)]
+        vs_version = self.settings.compiler.version
+
+        # Replace runtime library in all project files
+        project_file_paths = glob("*.vcxproj")
+        for file_path in project_file_paths:
+            patched_content = load(file_path)
+            patched_content = re.sub("(?<=<RuntimeLibrary>)[^<]*", runtime, patched_content)
+            save(file_path, patched_content)
+
+        build_cmd = "msbuild \"{solution}\" /t:Build \"/p:Configuration={config}\" \"/p:Platform={platform}\" \"/p:VisualStudioVersion={vs_version}\" /m".format(
+            solution=solution_file_name,
+            config=config_name,
+            platform=platform,
+            vs_version=vs_version
+        )
+        self.run(build_cmd)
+
+    def build_with_make(self):
+        self.run(self.wx_build_command_format[str(self.settings.compiler)].format(self.wx_compile_params))
 
 class Version:
     major = None
