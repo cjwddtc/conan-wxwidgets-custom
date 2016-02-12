@@ -70,8 +70,6 @@ class WxWidgetsConan(ConanFile):
     wx_compiler_include_dir = None
     wx_platform_include_dir = None
     wx_compiler_defines = []
-    wx_runtime_libs_linkage = "dynamic"
-    wx_compile_params = []
     wx_version = None
 
     wx_compiler_prefix_map = {
@@ -79,14 +77,6 @@ class WxWidgetsConan(ConanFile):
     }
     wx_compiler_include_dir_map = {
         "Visual Studio": "msvc"
-    }
-    wx_compiler_runtime_map = {
-        "Visual Studio": {
-            "MDd": "dynamic",
-            "MD": "dynamic",
-            "MTd": "static",
-            "MT": "static"
-        }
     }
     wx_platform_map = {
         "Windows": "msw"
@@ -96,13 +86,6 @@ class WxWidgetsConan(ConanFile):
     }
     wx_compiler_defines_for_compiler_map = {
         "Visual Studio": ["_CRT_SECURE_NO_WARNINGS", "UNICODE", "_UNICODE"]
-    }
-    wx_build_type_map = {
-        "Debug": "debug",
-        "Release": "release"
-    }
-    wx_build_command_format = {
-        "Visual Studio": "nmake -f makefile.vc {0}"
     }
 
     def config(self):
@@ -129,7 +112,7 @@ class WxWidgetsConan(ConanFile):
 
     def build(self):
         os.chdir(os.path.join(self.repo_subdir, self.wx_build_dir))
-        if self.settings.compiler == "Visual Studio":
+        if self.settings.compiler != "Visual Studio":
             self.build_with_visual_studio()
         else:
             self.build_with_make()
@@ -192,10 +175,6 @@ class WxWidgetsConan(ConanFile):
         self.wx_platform = self.wx_platform_map[str(self.settings.os)]
         self.wx_compiler_prefix = self.wx_compiler_prefix_map[str(self.settings.compiler)]
 
-        if self.settings.compiler.runtime != None:
-            runtime_map = self.wx_compiler_runtime_map[str(self.settings.compiler)]
-            self.wx_runtime_libs_linkage = runtime_map[str(self.settings.compiler.runtime)] 
-
         # Unicode should always be enabled
         self.wx_unicode_suffix = "u"
 
@@ -213,14 +192,6 @@ class WxWidgetsConan(ConanFile):
         self.config_include_dirs()
 
         self.wx_build_dir = posixpath.join("build", self.wx_platform)
-        self.wx_compile_params = "RUNTIME_LIBS={runtime_libs} UNICODE={unicode} SHARED={shared} MONOLITHIC={monolithic} TARGET_CPU={target_cpu} BUILD={build}".format(
-            runtime_libs=self.wx_runtime_libs_linkage,
-            unicode=1,
-            shared=1 if self.options.shared else 0,
-            monolithic=0,
-            target_cpu="x64" if self.settings.arch == "x86_64" else "x86",
-            build=self.wx_build_type_map[str(self.settings.build_type)]
-        )
 
     def build_with_visual_studio(self):
         solution_file_name = "wx_vc{0}.sln".format(str(self.settings.compiler.version))
@@ -252,7 +223,38 @@ class WxWidgetsConan(ConanFile):
         self.run(build_cmd)
 
     def build_with_make(self):
-        self.run(self.wx_build_command_format[str(self.settings.compiler)].format(self.wx_compile_params))
+        compiler_configs = {
+            "Visual Studio": {
+                "runtime": {"MDd": "dynamic", "MD": "dynamic", "MTd": "static", "MT": "static"},
+                "make_command_format": "nmake -f makefile.vc {0}"
+            }
+        }
+
+        # Conan build type to wx build type
+        build_type_map = {
+            "Debug": "debug",
+            "Release": "release"
+        }
+
+        compiler_config = compiler_configs[str(self.settings.compiler)]
+
+        # Default runtime library
+        runtime_libs = "dynamic"
+        if self.settings.compiler.runtime != None:
+            runtime_map = compiler_config["runtime"]
+            runtime_libs = runtime_map[str(self.settings.compiler.runtime)]
+
+        make_params = "RUNTIME_LIBS={runtime_libs} UNICODE={unicode} SHARED={shared} MONOLITHIC={monolithic} TARGET_CPU={target_cpu} BUILD={build}".format(
+            runtime_libs=runtime_libs,
+            unicode=1,
+            shared=1 if self.options.shared else 0,
+            monolithic=0,
+            target_cpu="x64" if self.settings.arch == "x86_64" else "x86",
+            build=build_type_map[str(self.settings.build_type)]
+        )
+
+        cmd = compiler_config["make_command_format"].format(make_params)
+        self.run(cmd)
 
 class Version:
     major = None
