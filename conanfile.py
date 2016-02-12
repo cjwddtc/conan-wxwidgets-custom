@@ -12,6 +12,7 @@ class WxWidgetsConan(ConanFile):
     name = "wxWidgets_custom"
     version = "master"
     url = "https://github.com/SteffenL/conan-wxwidgets-custom"
+    license = "wxWindows Library Licence"
     settings = {
         "os": ["Windows"],
         "compiler": ["Visual Studio"],
@@ -20,12 +21,9 @@ class WxWidgetsConan(ConanFile):
     }
     options = {
         "shared": [True, False],
-        "unicode": [True, False],
-        "monolithic": [True, False],
-        "use_gui": [True, False],
-        "wxdebug": [True, False]
+        "use_gui": [True, False]
     }
-    default_options = "shared=True", "unicode=True", "monolithic=False", "use_gui=True", "wxdebug=True"
+    default_options = "shared=True", "use_gui=True"
     exports = "wxWidgets/*"
 
     # If this is changed, remember to update exports as well.
@@ -110,6 +108,10 @@ class WxWidgetsConan(ConanFile):
     def config(self):
         pass
 
+    def conan_info(self):
+        # This option is just for clients, not for building the library. It should not generate a new variation of the package.
+        self.info.options.use_gui = "Any"
+
     def source(self):
         git_branch = self.git_branch_format.format(version=self.version)
         git_clone_params = [
@@ -149,7 +151,7 @@ class WxWidgetsConan(ConanFile):
         self.cpp_info.defines = self.wx_compiler_defines
 
     def config_compiler_defines(self):
-        if self.options.wxdebug:
+        if self.settings.build_type == "Debug":
             self.wx_compiler_defines.append("__WXDEBUG__")
 
         self.wx_compiler_defines.append("wxUSE_GUI=%s" % 1 if self.options.use_gui else 0)
@@ -194,8 +196,8 @@ class WxWidgetsConan(ConanFile):
             runtime_map = self.wx_compiler_runtime_map[str(self.settings.compiler)]
             self.wx_runtime_libs_linkage = runtime_map[str(self.settings.compiler.runtime)] 
 
-        if self.options.unicode:
-            self.wx_unicode_suffix = "u"
+        # Unicode should always be enabled
+        self.wx_unicode_suffix = "u"
 
         if self.settings.build_type == "Debug":
             self.wx_debug_suffix = "d"
@@ -213,9 +215,9 @@ class WxWidgetsConan(ConanFile):
         self.wx_build_dir = posixpath.join("build", self.wx_platform)
         self.wx_compile_params = "RUNTIME_LIBS={runtime_libs} UNICODE={unicode} SHARED={shared} MONOLITHIC={monolithic} TARGET_CPU={target_cpu} BUILD={build}".format(
             runtime_libs=self.wx_runtime_libs_linkage,
-            unicode=1 if self.options.unicode else 0,
+            unicode=1,
             shared=1 if self.options.shared else 0,
-            monolithic=1 if self.options.monolithic else 0,
+            monolithic=0,
             target_cpu="x64" if self.settings.arch == "x86_64" else "x86",
             build=self.wx_build_type_map[str(self.settings.build_type)]
         )
