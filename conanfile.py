@@ -112,7 +112,7 @@ class WxWidgetsConan(ConanFile):
 
     def build(self):
         os.chdir(os.path.join(self.repo_subdir, self.wx_build_dir))
-        if self.settings.compiler != "Visual Studio":
+        if self.settings.compiler == "Visual Studio":
             self.build_with_visual_studio()
         else:
             self.build_with_make()
