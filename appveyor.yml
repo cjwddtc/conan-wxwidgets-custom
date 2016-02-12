@@ -8,7 +8,7 @@ environment:
     CONAN_REFERENCE: "wxWidgets_custom/master"
     CONAN_USERNAME: "sl"
     CONAN_CHANNEL: "ci"
-    CONAN_TOTAL_PAGES: 8
+    CONAN_TOTAL_PAGES: 12
 
     matrix:
         - CONAN_CURRENT_PAGE: 1
@@ -19,6 +19,10 @@ environment:
         - CONAN_CURRENT_PAGE: 6
         - CONAN_CURRENT_PAGE: 7
         - CONAN_CURRENT_PAGE: 8
+        - CONAN_CURRENT_PAGE: 9
+        - CONAN_CURRENT_PAGE: 10
+        - CONAN_CURRENT_PAGE: 11
+        - CONAN_CURRENT_PAGE: 12
 
 install:
   - set PATH=%PATH%;%PYTHON%/Scripts/
