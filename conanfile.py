@@ -11,7 +11,7 @@ import codecs
 
 class WxWidgetsConan(ConanFile):
     name = "wxWidgets_custom"
-    version = "master"
+    version = "3.1.0"
     url = "https://github.com/SteffenL/conan-wxwidgets-custom"
     license = "wxWindows Library Licence"
     settings = {

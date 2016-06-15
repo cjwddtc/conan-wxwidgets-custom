@@ -5,7 +5,7 @@ environment:
     PYTHON_ARCH: "32"
 
     CONAN_UPLOAD: 1
-    CONAN_REFERENCE: "wxWidgets_custom/master"
+    CONAN_REFERENCE: "wxWidgets_custom/3.1.0"
     CONAN_USERNAME: "sl"
     CONAN_CHANNEL: "ci"
     CONAN_TOTAL_PAGES: 16

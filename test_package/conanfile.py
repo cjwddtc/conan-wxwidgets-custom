@@ -7,7 +7,7 @@ class RunConanTestConan(ConanFile):
 
     settings = "os", "compiler", "build_type", "arch"
     generators = "cmake"
-    requires = "wxWidgets_custom/master@{0}/{1}".format(_conan_user, _conan_channel)
+    requires = "wxWidgets_custom/3.1.0@{0}/{1}".format(_conan_user, _conan_channel)
 
     def build(self):
         cmake = CMake(self.settings)
