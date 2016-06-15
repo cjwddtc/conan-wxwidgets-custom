@@ -1,4 +1,4 @@
-from conans.util.files import save, load
+#from conans.util.files import save, load
 from conans import ConanFile, CMake
 import platform
 import os
@@ -7,6 +7,7 @@ import posixpath
 import string
 import re
 from collections import namedtuple
+import codecs
 
 class WxWidgetsConan(ConanFile):
     name = "wxWidgets_custom"
@@ -206,13 +207,13 @@ class WxWidgetsConan(ConanFile):
         }
         runtime = runtime_map[str(self.settings.compiler.runtime)]
         vs_version = self.settings.compiler.version
-
         # Replace runtime library in all project files
         project_file_paths = glob("*.vcxproj")
         for file_path in project_file_paths:
-            patched_content = load(file_path)
+            encoding = self.detect_by_bom(file_path, "utf-8")
+            patched_content = self.load(file_path, encoding)
             patched_content = re.sub("(?<=<RuntimeLibrary>)[^<]*", runtime, patched_content)
-            save(file_path, patched_content)
+            self.save(file_path, patched_content, encoding)
 
         build_cmd = "msbuild \"{solution}\" /t:Build \"/p:Configuration={config}\" \"/p:Platform={platform}\" \"/p:VisualStudioVersion={vs_version}\" /m".format(
             solution=solution_file_name,
@@ -255,6 +256,26 @@ class WxWidgetsConan(ConanFile):
 
         cmd = compiler_config["make_command_format"].format(make_params)
         self.run(cmd)
+
+    def load(self, path, encoding=None):
+        encoding = detect_by_bom(path, "utf-8") if encoding is None else encoding
+        with codecs.open(path, "rb", encoding=encoding) as f:
+            return f.read()
+
+    def save(self, path, content, encoding=None):
+        with codecs.open(path, "wb", encoding=encoding) as f:
+            f.write(content)
+
+    # Ref.: http://stackoverflow.com/a/24370596
+    def detect_by_bom(self,path,default):
+        with open(path, 'rb') as f:
+            raw = f.read(4)    #will read less if the file is smaller
+        for enc,boms in \
+                ('utf-8-sig',(codecs.BOM_UTF8,)),\
+                ('utf-16',(codecs.BOM_UTF16_LE,codecs.BOM_UTF16_BE)),\
+                ('utf-32',(codecs.BOM_UTF32_LE,codecs.BOM_UTF32_BE)):
+            if any(raw.startswith(bom) for bom in boms): return enc
+        return default
 
 class Version:
     major = None

@@ -5,7 +5,7 @@ set(TARGET_NAME run_conan_test)
 
 
 # Setup Conan
-include(conanbuildinfo.cmake)
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
 
