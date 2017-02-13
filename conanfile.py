@@ -72,7 +72,7 @@ class WxWidgetsConan(ConanFile):
             dst_lib_dir="lib"
             self.copy(pattern="*.so", dst=dst_lib_dir, src=src_libs_dir)
             self.copy(pattern="*.a", dst=dst_lib_dir, src=src_libs_dir)
-            self.copy(pattern="wx-config",dst="bin",src="self.repo_subdir")
+            self.copy(pattern="wx-config",dst="bin",src=self.repo_subdir)
         self.copy(pattern="*", dst="include", src=posixpath.join(self.repo_subdir,"include"))
         self.copy(pattern="*.h", dst=dst_lib_dir, src=src_libs_dir)
     def package_info(self):
